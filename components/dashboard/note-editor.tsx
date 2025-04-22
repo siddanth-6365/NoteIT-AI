@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
@@ -10,83 +10,78 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
-import { AISummary } from "@/components/dashboard/ai-summary"
 import { Brain, Loader2, Save } from "lucide-react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { AISummary } from "@/components/dashboard/ai-summary"
+import { useSaveNote, useNote } from "@/hooks/use-notes"
 
 const formSchema = z.object({
-  title: z.string().min(1, {
-    message: "Title is required.",
-  }),
-  content: z.string().min(1, {
-    message: "Content is required.",
-  }),
+  title: z.string().min(1, { message: "Title is required." }),
+  content: z.string().min(1, { message: "Content is required." }),
   tags: z.string().optional(),
 })
 
 interface NoteEditorProps {
   id?: string
-  isNew?: boolean
 }
 
-// Mock note data
-const mockNote = {
-  id: "1",
-  title: "Meeting Notes",
-  content:
-    "Discussed project timeline and deliverables with the team. We agreed on the following milestones:\n\n1. Design phase: 2 weeks\n2. Development phase: 4 weeks\n3. Testing phase: 2 weeks\n4. Deployment: 1 week\n\nKey decisions:\n- Use React for frontend\n- Use Node.js for backend\n- Use PostgreSQL for database\n- Use AWS for hosting",
-  tags: "work,project,meeting",
-}
-
-export function NoteEditor({ id, isNew = false }: NoteEditorProps) {
-  const [isSaving, setIsSaving] = useState(false)
-  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false)
+export function NoteEditor({ id }: NoteEditorProps) {
   const [summary, setSummary] = useState<string | null>(null)
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
 
+  const { mutateAsync: saveNote, isPending: isSaving } = useSaveNote()
+
+  const { data: existingNote, isLoading: isFetching } = useNote(id || '')
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: isNew
-      ? {
-          title: "",
-          content: "",
-          tags: "",
-        }
-      : {
-          title: mockNote.title,
-          content: mockNote.content,
-          tags: mockNote.tags,
-        },
+    defaultValues: {
+      title: "",
+      content: "",
+      tags: "",
+    },
   })
 
+  // When note loads, populate the form
+  useEffect(() => {
+    if (existingNote) {
+      form.reset({
+        title: existingNote.title,
+        content: existingNote.body,
+        tags: (existingNote.tags ?? []).join(", "),
+      })
+    }
+  }, [existingNote, form])
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    setIsSaving(true)
+    const tagsArray = values.tags
+      ?.split(",")
+      .map((t) => t.trim())
+      .filter(Boolean) ?? []
 
     try {
-      // This would be replaced with actual Supabase data operations
-      console.log("Saving note:", values)
-
-      // Simulate saving
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      await saveNote({
+        id,
+        title: values.title,
+        body: values.content,
+        tags: tagsArray,
+      })
 
       toast({
         title: "Success!",
-        description: isNew ? "Your note has been created." : "Your note has been updated.",
+        description: id ? "Your note has been updated." : "Your note has been created.",
       })
 
-      if (isNew) {
-        router.push("/dashboard")
-      }
+      router.push("/dashboard")
     } catch (error) {
       toast({
         title: "Error",
         description: "Something went wrong. Please try again.",
         variant: "destructive",
       })
-    } finally {
-      setIsSaving(false)
     }
   }
 
@@ -106,26 +101,17 @@ export function NoteEditor({ id, isNew = false }: NoteEditorProps) {
     setSummary(null)
 
     try {
-      // This would be replaced with actual Groq API call
-      console.log("Generating summary for:", content)
-
-      // Simulate AI processing
       await new Promise((resolve) => setTimeout(resolve, 2000))
-
-      // Mock summary response
-      const mockSummary =
-        "This note contains meeting notes discussing a project timeline with specific phases: 2 weeks for design, 4 weeks for development, 2 weeks for testing, and 1 week for deployment. Key technology decisions include using React, Node.js, PostgreSQL, and AWS."
-
-      setSummary(mockSummary)
+      setSummary("This is an AI-generated summary of the note…")
 
       toast({
         title: "Summary generated",
         description: "AI summary has been generated successfully.",
       })
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
-        description: "Failed to generate summary. Please try again.",
+        description: "Failed to generate summary.",
         variant: "destructive",
       })
     } finally {
@@ -133,21 +119,21 @@ export function NoteEditor({ id, isNew = false }: NoteEditorProps) {
     }
   }
 
+  if (id && isFetching) {
+    return <p className="py-4 text-muted-foreground text-sm">Loading note...</p>
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold md:text-2xl">{isNew ? "Create New Note" : "Edit Note"}</h1>
+        <h1 className="text-lg font-semibold md:text-2xl">{id ? "Edit Note" : "Create New Note"}</h1>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
             onClick={handleGenerateSummary}
             disabled={isGeneratingSummary || form.getValues("content").length < 50}
           >
-            {isGeneratingSummary ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Brain className="mr-2 h-4 w-4" />
-            )}
+            {isGeneratingSummary ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Brain className="mr-2 h-4 w-4" />}
             Generate Summary
           </Button>
           <Button type="submit" onClick={form.handleSubmit(onSubmit)} disabled={isSaving}>
@@ -172,9 +158,7 @@ export function NoteEditor({ id, isNew = false }: NoteEditorProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Title</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Note title" {...field} />
-                    </FormControl>
+                    <FormControl><Input placeholder="Note title" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -185,9 +169,7 @@ export function NoteEditor({ id, isNew = false }: NoteEditorProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Content</FormLabel>
-                    <FormControl>
-                      <Textarea placeholder="Write your note here..." className="min-h-[300px]" {...field} />
-                    </FormControl>
+                    <FormControl><Textarea className="min-h-[300px]" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -198,9 +180,7 @@ export function NoteEditor({ id, isNew = false }: NoteEditorProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Tags (comma separated)</FormLabel>
-                    <FormControl>
-                      <Input placeholder="work, project, idea" {...field} />
-                    </FormControl>
+                    <FormControl><Input placeholder="work, personal" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -213,31 +193,20 @@ export function NoteEditor({ id, isNew = false }: NoteEditorProps) {
             <CardHeader>
               <CardTitle>{form.getValues("title") || "Untitled Note"}</CardTitle>
               <CardDescription>
-                {form.getValues("tags")
-                  ? form
-                      .getValues("tags")
-                      .split(",")
-                      .map((tag) => tag.trim())
-                      .filter(Boolean)
-                      .map((tag) => (
-                        <span
-                          key={tag}
-                          className="mr-2 inline-flex items-center rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-800 dark:bg-purple-900 dark:text-purple-300"
-                        >
-                          {tag}
-                        </span>
-                      ))
-                  : "No tags"}
+                {(form.getValues("tags") ?? "")
+                  .split(",")
+                  .map((tag) => tag.trim())
+                  .filter(Boolean)
+                  .map((tag) => (
+                    <span key={tag} className="mr-2 inline-flex items-center rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-800 dark:bg-purple-900 dark:text-purple-300">
+                      {tag}
+                    </span>
+                  ))}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="prose dark:prose-invert max-w-none">
-                {form
-                  .getValues("content")
-                  .split("\n")
-                  .map((paragraph, index) => (
-                    <p key={index}>{paragraph}</p>
-                  ))}
+                {form.getValues("content").split("\n").map((p, i) => <p key={i}>{p}</p>)}
               </div>
             </CardContent>
             <CardFooter>

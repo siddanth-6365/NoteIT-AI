@@ -1,113 +1,88 @@
-"use client"
-
-import { useState } from "react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { formatDistanceToNow } from "date-fns"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { useToast } from "@/hooks/use-toast"
-import { Search, Trash2 } from "lucide-react"
+'use client'
+import { useState } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { Search, Trash2 } from 'lucide-react'
+import { formatDistanceToNow } from 'date-fns'
+import { Input } from '@/components/ui/input'
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
-import { Button } from "@/components/ui/button"
-
-// Mock data for notes
-const mockNotes = [
-  {
-    id: "1",
-    title: "Meeting Notes",
-    content: "Discussed project timeline and deliverables with the team.",
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 hours ago
-    updatedAt: new Date(Date.now() - 1000 * 60 * 30), // 30 minutes ago
-    tags: ["work", "project"],
-  },
-  {
-    id: "2",
-    title: "Ideas for New Feature",
-    content: "Brainstorming session for the upcoming product release.",
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2), // 2 days ago
-    updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24), // 1 day ago
-    tags: ["product", "feature"],
-  },
-  {
-    id: "3",
-    title: "Research on AI Technologies",
-    content: "Notes on the latest AI advancements and potential applications.",
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5), // 5 days ago
-    updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3), // 3 days ago
-    tags: ["research", "ai"],
-  },
-]
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
+import { Button } from '@/components/ui/button'
+import { useToast } from '@/hooks/use-toast'
+import { useNotes, useDeleteNote } from '@/hooks/use-notes'
 
 export function NotesList() {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [notes, setNotes] = useState(mockNotes)
+  const [search, setSearch] = useState('')
   const router = useRouter()
   const { toast } = useToast()
 
-  const filteredNotes = notes.filter(
-    (note) =>
-      note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      note.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      note.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase())),
+  const { data: notes = [], isLoading } = useNotes()
+  const { mutate: remove } = useDeleteNote()
+
+  const filtered = notes.filter(
+    n =>
+      n.title.toLowerCase().includes(search.toLowerCase()) ||
+      n.body.toLowerCase().includes(search.toLowerCase()) ||
+      (n.tags ?? []).some(t => t.toLowerCase().includes(search.toLowerCase())),
   )
 
-  const handleDeleteNote = (id: string) => {
-    setNotes(notes.filter((note) => note.id !== id))
-    toast({
-      title: "Note deleted",
-      description: "Your note has been deleted successfully.",
+  const handleDelete = (id: string) =>
+    remove(id, {
+      onSuccess: () =>
+        toast({ title: 'Note deleted', description: 'Your note was removed.' }),
+      onError: e =>
+        toast({ title: 'Error', description: String(e), variant: 'destructive' }),
     })
-  }
+
+  if (isLoading) return (
+    <div className="py-10 flex flex-col items-center justify-center">
+      <span className="animate-spin rounded-full border-4 border-t-transparent border-primary h-10 w-10 mb-4" />
+      <p className="text-center text-muted-foreground">Loading your notes…</p>
+    </div>
+  )
 
   return (
     <div className="space-y-4">
       <div className="relative">
         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
-          type="search"
-          placeholder="Search notes..."
+          placeholder="Search notes…"
           className="pl-8"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          value={search}
+          onChange={e => setSearch(e.target.value)}
         />
       </div>
 
-      {filteredNotes.length === 0 ? (
-        <div className="flex h-[300px] w-full flex-col items-center justify-center rounded-md border border-dashed p-8 text-center animate-in fade-in-50">
-          <div className="mx-auto flex max-w-[420px] flex-col items-center justify-center text-center">
-            <h3 className="mt-4 text-lg font-semibold">No notes found</h3>
-            <p className="mb-4 mt-2 text-sm text-muted-foreground">
-              {searchQuery
-                ? "We couldn't find any notes matching your search."
-                : "You don't have any notes yet. Create one to get started."}
+      {filtered.length === 0 ? (
+        <div className="flex h-[300px] items-center justify-center rounded-md border border-dashed p-8 text-center">
+          <div>
+            <h3 className="text-lg font-semibold">No notes found</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {search ? 'Nothing matches your search.' : 'Create your first note!'}
             </p>
-            {!searchQuery && <Button onClick={() => router.push("/dashboard/notes/new")}>Create a note</Button>}
+            {!search && (
+              <Button onClick={() => router.push('/dashboard/notes/new')} className="mt-4">
+                Create a note
+              </Button>
+            )}
           </div>
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredNotes.map((note) => (
-            <Card key={note.id} className="overflow-hidden">
+          {filtered.map(note => (
+            <Card key={note.id}>
               <Link href={`/dashboard/notes/${note.id}`}>
                 <CardHeader className="cursor-pointer">
                   <CardTitle className="line-clamp-1">{note.title}</CardTitle>
-                  <CardDescription className="line-clamp-2">{note.content}</CardDescription>
+                  <CardDescription className="line-clamp-2">{note.body}</CardDescription>
                 </CardHeader>
               </Link>
               <CardContent>
                 <div className="flex flex-wrap gap-2">
-                  {note.tags.map((tag) => (
+                  {(note.tags ?? []).map(tag => (
                     <span
                       key={tag}
                       className="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-800 dark:bg-purple-900 dark:text-purple-300"
@@ -118,26 +93,23 @@ export function NotesList() {
                 </div>
               </CardContent>
               <CardFooter className="flex items-center justify-between">
-                <div className="text-xs text-muted-foreground">
-                  Updated {formatDistanceToNow(note.updatedAt, { addSuffix: true })}
-                </div>
+                <span className="text-xs text-muted-foreground">
+                  Updated {formatDistanceToNow(new Date(note.updated_at), { addSuffix: true })}
+                </span>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button variant="ghost" size="icon">
                       <Trash2 className="h-4 w-4 text-muted-foreground" />
-                      <span className="sr-only">Delete</span>
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete your note.
-                      </AlertDialogDescription>
+                      <AlertDialogTitle>Delete note?</AlertDialogTitle>
+                      <AlertDialogDescription>This action can’t be undone.</AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => handleDeleteNote(note.id)}>Delete</AlertDialogAction>
+                      <AlertDialogAction onClick={() => handleDelete(note.id)}>Delete</AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
