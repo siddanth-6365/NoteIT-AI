@@ -48,9 +48,10 @@ export function LoginForm() {
 
       router.push("/dashboard")
     } catch (error) {
+
       toast({
         title: "Error",
-        description: "Something went wrong. Please try again.",
+        description: (error as Error).message,
         variant: "destructive",
       })
     } finally {
@@ -63,17 +64,10 @@ export function LoginForm() {
 
     try {
       await signInWithGoogle()
-
-      toast({
-        title: "Success!",
-        description: "You have successfully logged in with Google.",
-      })
-
-      router.push("/dashboard")
     } catch (error) {
       toast({
         title: "Error",
-        description: "Something went wrong with Google login. Please try again.",
+        description: (error as Error).message,
         variant: "destructive",
       })
     } finally {

@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -13,13 +14,27 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useToast } from "@/hooks/use-toast"
+import { getCurrentUser, signOut } from "@/lib/api/auth"
 
 export function UserNav() {
   const router = useRouter()
+  const [user, setUser] = useState<any>(null)
   const { toast } = useToast()
 
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const currentUser = await getCurrentUser()
+        setUser(currentUser)
+      } catch (error) {
+        console.error("Error fetching user:", error)
+      }
+    }
+    fetchUser()
+  }, [])
+
   const handleSignOut = () => {
-    // This would be replaced with actual Supabase sign out
+    signOut()
     toast({
       title: "Signed out",
       description: "You have been signed out successfully.",
@@ -40,8 +55,8 @@ export function UserNav() {
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">User</p>
-            <p className="text-xs leading-none text-muted-foreground">user@example.com</p>
+            <p className="text-sm font-medium leading-none">{user?.user_metadata?.name}</p>
+            <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />

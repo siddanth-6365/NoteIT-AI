@@ -14,6 +14,9 @@ import { signUp, signInWithGoogle } from "@/lib/api/auth"
 
 const formSchema = z
   .object({
+    name: z.string().min(3, {
+      message: "Name must be at least 3 characters.",
+    }),
     email: z.string().email({
       message: "Please enter a valid email address.",
     }),
@@ -38,6 +41,7 @@ export function SignUpForm() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      name: "",
       email: "",
       password: "",
       confirmPassword: "",
@@ -48,7 +52,7 @@ export function SignUpForm() {
     setIsLoading(true)
 
     try {
-      await signUp(values.email, values.password)
+      await signUp(values.email, values.password, { data: { name: values.name } })
 
       toast({
         title: "Account created!",
@@ -73,12 +77,14 @@ export function SignUpForm() {
     try {
       await signInWithGoogle()
 
-      toast({
-        title: "Account created!",
-        description: "You have successfully created an account with Google.",
-      })
+      // toast({
+      //   title: "Account created!",
+      //   description: "You have successfully created an account with Google.",
+      // })
 
-      router.push("/dashboard")
+      // Navigation to dashboard should be handled after successful authentication redirect
+      // For example, in an auth callback page or effect when user state updates
+      // router.push("/dashboard")
     } catch (error) {
       toast({
         title: "Error",
@@ -94,6 +100,19 @@ export function SignUpForm() {
     <div className="grid gap-6">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Name</FormLabel>
+                <FormControl>
+                  <Input placeholder="John Doe" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
           <FormField
             control={form.control}
             name="email"

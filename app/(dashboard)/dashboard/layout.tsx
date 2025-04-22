@@ -13,7 +13,7 @@ export default function DashboardLayout({
       <header className="sticky top-0 z-50 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6">
         <MobileNav />
         <div className="hidden md:flex md:flex-row md:items-center md:gap-2">
-          <span className="text-xl font-bold">NoteGenius</span>
+          <span className="text-xl font-bold">NoteIT-AI</span>
         </div>
         <div className="flex flex-1 items-center justify-end gap-4 md:gap-2 lg:gap-4">
           <UserNav />

@@ -5,7 +5,7 @@ export default function LoginPage() {
   return (
     <div className="container flex h-screen w-screen flex-col items-center justify-center">
       <Link href="/" className="absolute left-4 top-4 md:left-8 md:top-8">
-        <span className="text-lg font-bold">NoteGenius</span>
+        <span className="text-lg font-bold">NoteIT-AI</span>
       </Link>
       <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
         <div className="flex flex-col space-y-2 text-center">
