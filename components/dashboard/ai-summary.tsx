@@ -1,5 +1,13 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Brain } from "lucide-react"
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { Brain } from 'lucide-react'
 
 interface AISummaryProps {
   summary: string
@@ -12,12 +20,14 @@ export function AISummary({ summary }: AISummaryProps) {
         <Brain className="h-5 w-5 text-purple-600 dark:text-purple-400" />
         <div>
           <CardTitle>AI Summary</CardTitle>
-          <CardDescription>Generated using Groq API</CardDescription>
+          <CardDescription>Generated using Llama 3.1</CardDescription>
         </div>
       </CardHeader>
       <CardContent>
-        <div className="prose dark:prose-invert max-w-none whitespace-pre-wrap">
-          <p>{summary}</p>
+        <div className="prose dark:prose-invert max-w-none">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {summary}
+          </ReactMarkdown>
         </div>
       </CardContent>
     </Card>

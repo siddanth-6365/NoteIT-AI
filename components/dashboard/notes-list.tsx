@@ -113,7 +113,7 @@ export function NotesList({ limit }: NotesListProps) {
                   ))}
                 </div>
               </CardContent>
-              <CardFooter className="flex items-center justify-between">
+              <CardFooter className="flex items-center justify-between ">
                 <span className="text-xs text-muted-foreground">
                   Updated {formatDistanceToNow(new Date(note.updated_at), { addSuffix: true })}
                 </span>
