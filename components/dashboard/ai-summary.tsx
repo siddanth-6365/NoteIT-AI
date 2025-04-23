@@ -16,7 +16,7 @@ export function AISummary({ summary }: AISummaryProps) {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="prose dark:prose-invert max-w-none">
+        <div className="prose dark:prose-invert max-w-none whitespace-pre-wrap">
           <p>{summary}</p>
         </div>
       </CardContent>

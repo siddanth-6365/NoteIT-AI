@@ -15,6 +15,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AISummary } from "@/components/dashboard/ai-summary"
 import { useSaveNote, useNote } from "@/hooks/use-notes"
+import { generateSummary } from "@/lib/api/ai"
 
 const formSchema = z.object({
   title: z.string().min(1, { message: "Title is required." }),
@@ -103,17 +104,18 @@ export function NoteEditor({ id }: NoteEditorProps) {
     setSummary(null)
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 2000))
-      setSummary("This is an AI-generated summary of the note…")
+      const summary = await generateSummary(content)
+      setSummary(summary)
+      setActiveTab('summary')
 
       toast({
         title: "Summary generated",
         description: "AI summary has been generated successfully.",
       })
-    } catch {
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Failed to generate summary.",
+        description: error.message || "Failed to generate summary.",
         variant: "destructive",
       })
     } finally {
@@ -141,10 +143,14 @@ export function NoteEditor({ id }: NoteEditorProps) {
               Generate Summary
             </Button>
           )}
-          <Button type="submit" onClick={form.handleSubmit(onSubmit)} disabled={isSaving}>
-            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-            Save Note
-          </Button>
+          {activeTab === 'editor' && (
+            <Button type="submit" onClick={form.handleSubmit(onSubmit)} disabled={isSaving}>
+              {isSaving
+                ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                : <Save className="mr-2 h-4 w-4" />}
+              Save Note
+            </Button>
+          )}
         </div>
       </div>
 

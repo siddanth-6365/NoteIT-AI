@@ -25,16 +25,16 @@ const navItems: NavItem[] = [
     href: "/dashboard/notes/all",
     icon: <FileText className="h-4 w-4" />,
   },
-  {
-    title: "Tags",
-    href: "/dashboard/tags",
-    icon: <Tag className="h-4 w-4" />,
-  },
-  {
-    title: "Settings",
-    href: "/dashboard/settings",
-    icon: <Settings className="h-4 w-4" />,
-  },
+  // {
+  //   title: "Tags",
+  //   href: "/dashboard/tags",
+  //   icon: <Tag className="h-4 w-4" />,
+  // },
+  // {
+  //   title: "Settings",
+  //   href: "/dashboard/settings",
+  //   icon: <Settings className="h-4 w-4" />,
+  // },
 ]
 
 export function DashboardNav() {

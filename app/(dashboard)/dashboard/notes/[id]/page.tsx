@@ -6,10 +6,11 @@ interface NotePageProps {
   }
 }
 
-export default function NotePage({ params }: NotePageProps) {
+export default async function NotePage({ params }: NotePageProps) {
+  const { id } = await params;
   return (
     <div className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
-      <NoteEditor id={params.id} />
+      <NoteEditor id={id} />
     </div>
   )
 }
