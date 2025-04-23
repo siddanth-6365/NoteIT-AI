@@ -47,6 +47,8 @@ const formSchema = z.object({
   title: z.string().min(1, { message: "Title is required." }),
   content: z.string().min(1, { message: "Content is required." }),
   tags: z.string().optional(),
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
 })
 
 // --- Enhance Modal ---
@@ -170,6 +172,8 @@ export function NoteEditor({ id }: NoteEditorProps) {
         title: existingNote.title,
         content: existingNote.body,
         tags: (existingNote.tags ?? []).join(", "),
+        createdAt: existingNote.created_at,
+        updatedAt: existingNote.updated_at,
       })
     }
   }, [existingNote, form])
@@ -363,9 +367,18 @@ export function NoteEditor({ id }: NoteEditorProps) {
               </div>
             </CardContent>
             <CardFooter>
-              <span className="text-sm text-muted-foreground">
-                Last updated: {new Date().toLocaleString()}
-              </span>
+              <div className="flex flex-col gap-1">
+                {form.getValues("createdAt") && (
+                  <span className="text-sm text-muted-foreground">
+                    Created at: {new Date(form.getValues("createdAt") as string).toLocaleString()}
+                  </span>
+                )}
+                {form.getValues("updatedAt") && (
+                  <span className="text-sm text-muted-foreground">
+                    Last updated: {new Date(form.getValues("updatedAt") as string).toLocaleString()}
+                  </span>
+                )}
+              </div>
             </CardFooter>
           </Card>
         </TabsContent>
