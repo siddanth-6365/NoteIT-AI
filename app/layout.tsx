@@ -9,8 +9,8 @@ import { ReactQueryProvider } from './providers'
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "NoteGenius - AI-Powered Notes App",
-  description: "Take notes and get AI-powered summaries",
+  title: "NoteIT AI",
+  description: "Take notes and enhance with AI",
 }
 
 export default function RootLayout({

@@ -6,6 +6,15 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -14,218 +23,300 @@ import { Brain, Loader2, Save } from "lucide-react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AISummary } from "@/components/dashboard/ai-summary"
+import Loader from "@/components/dashboard/loader"
 import { useSaveNote, useNote } from "@/hooks/use-notes"
-import { generateSummary } from "@/lib/api/ai"
+import { generateSummary, enhanceNote } from "@/lib/api/ai"
 
+// --- Schema -------------------------------------------------------
 const formSchema = z.object({
-  title: z.string().min(1, { message: "Title is required." }),
+  title:   z.string().min(1, { message: "Title is required." }),
   content: z.string().min(1, { message: "Content is required." }),
-  tags: z.string().optional(),
+  tags:    z.string().optional(),
 })
 
-interface NoteEditorProps {
-  id?: string
+// --- Enhance Modal Component -------------------------------------
+interface EnhanceDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  content: string
+  onApply: (newContent: string) => void
 }
 
-export function NoteEditor({ id }: NoteEditorProps) {
-  const [summary, setSummary] = useState<string | null>(null)
-  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false)
-  const [activeTab, setActiveTab] = useState<'editor' | 'preview' | 'summary'>(id ? 'preview' : 'editor')
+function EnhanceDialog({ open, onOpenChange, content, onApply }: EnhanceDialogProps) {
+  const [instructions, setInstructions] = useState("")
+  const [isLoading, setIsLoading]         = useState(false)
+  const [result, setResult]               = useState<string | null>(null)
+  const { toast } = useToast()
 
+  const handleEnhance = async () => {
+    setIsLoading(true)
+    setResult(null)
+    try {
+      const rewritten = await enhanceNote(content, instructions)
+      setResult(rewritten)
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message || "Failed to enhance note.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline" onClick={() => onOpenChange(true)}>
+          <Brain className="mr-1 h-4 w-4" /> Enhance
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg max-h-[80vh] overflow-auto">
+        <DialogHeader>
+          <DialogTitle>Enhance Note</DialogTitle>
+          <DialogDescription>
+            Optionally add instructions (tone, style, focus).
+          </DialogDescription>
+        </DialogHeader>
+
+        {!result ? (
+          <>
+            <Textarea
+              className="w-full mb-4"
+              placeholder="e.g. Make it more concise and engaging"
+              value={instructions}
+              onChange={(e) => setInstructions(e.target.value)}
+              rows={3}
+            />
+            <DialogFooter className="justify-between">
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleEnhance} disabled={isLoading || !content}>
+                {isLoading
+                  ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  : <Brain className="mr-2 h-4 w-4" />}
+                Enhance
+              </Button>
+            </DialogFooter>
+          </>
+        ) : (
+          <>
+            <div className="prose whitespace-pre-wrap max-w-none mb-4">
+              {result}
+            </div>
+            <DialogFooter>
+              <Button
+                onClick={() => {
+                  onApply(result)
+                  onOpenChange(false)
+                  setInstructions("")
+                  setResult(null)
+                }}
+              >
+                Apply
+              </Button>
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Discard
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// --- Main Editor --------------------------------------------------
+interface NoteEditorProps { id?: string }
+
+export function NoteEditor({ id }: NoteEditorProps) {
   const router = useRouter()
   const { toast } = useToast()
 
+  // fetch / save
+  const { data: existingNote, isLoading: isFetching } = useNote(id || "")
   const { mutateAsync: saveNote, isPending: isSaving } = useSaveNote()
 
-  const { data: existingNote, isLoading: isFetching } = useNote(id || '')
-
+  // form
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      title: "",
-      content: "",
-      tags: "",
-    },
+    defaultValues: { title: "", content: "", tags: "" },
   })
 
-  // When note loads, populate the form
+  // populate if editing
   useEffect(() => {
     if (existingNote) {
       form.reset({
-        title: existingNote.title,
+        title:   existingNote.title,
         content: existingNote.body,
-        tags: (existingNote.tags ?? []).join(", "),
+        tags:    (existingNote.tags ?? []).join(", "),
       })
     }
   }, [existingNote, form])
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
-    const tagsArray = values.tags
+  // tabs: editor / preview / summary
+  const [activeTab, setActiveTab] = useState<"editor" | "preview" | "summary">(
+    id ? "preview" : "editor"
+  )
+
+  // AI summary
+  const [summary, setSummary] = useState<string | null>(null)
+  const [isGenSum, setIsGenSum] = useState(false)
+
+  async function handleGenerateSummary() {
+    const c = form.getValues("content")
+    if (!c || c.length < 50) {
+      toast({ title: "Not enough content", variant: "destructive" })
+      return
+    }
+    setIsGenSum(true)
+    setSummary(null)
+    try {
+      const s = await generateSummary(c)
+      setSummary(s)
+      setActiveTab("summary")
+      toast({ title: "Summary generated" })
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" })
+    } finally {
+      setIsGenSum(false)
+    }
+  }
+
+  // enhance modal state
+  const [showEnhance, setShowEnhance] = useState(false)
+
+  // save/update
+  async function onSubmit(vals: z.infer<typeof formSchema>) {
+    const tagsArr = vals.tags
       ?.split(",")
       .map((t) => t.trim())
       .filter(Boolean) ?? []
-
     try {
-      await saveNote({
-        id,
-        title: values.title,
-        body: values.content,
-        tags: tagsArray,
-      })
-
-      toast({
-        title: "Success!",
-        description: id ? "Your note has been updated." : "Your note has been created.",
-      })
-
+      await saveNote({ id, title: vals.title, body: vals.content, tags: tagsArr })
+      toast({ title: "Success!", description: id ? "Updated." : "Saved." })
       router.push("/dashboard")
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Something went wrong. Please try again.",
-        variant: "destructive",
-      })
+    } catch {
+      toast({ title: "Error", variant: "destructive" })
     }
   }
 
-  const handleGenerateSummary = async () => {
-    const content = form.getValues("content")
-
-    if (!content || content.length < 50) {
-      toast({
-        title: "Not enough content",
-        description: "Please add more content to generate a summary.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    setIsGeneratingSummary(true)
-    setSummary(null)
-
-    try {
-      const summary = await generateSummary(content)
-      setSummary(summary)
-      setActiveTab('summary')
-
-      toast({
-        title: "Summary generated",
-        description: "AI summary has been generated successfully.",
-      })
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to generate summary.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsGeneratingSummary(false)
-    }
-  }
-
-  if (id && isFetching) {
-    return <p className="py-4 text-muted-foreground text-sm">Loading note...</p>
-  }
+  if (id && isFetching) return <Loader message="Loading note…" />
 
   return (
     <div className="space-y-4">
+      {/* Title + Save/Generate */}
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold md:text-2xl">{id ? "Edit Note" : "Create New Note"}</h1>
-        <div className="flex items-center gap-2">
-
-          {activeTab === 'preview' && (
+        <h1 className="text-2xl font-semibold">{id ? "Edit Note" : "New Note"}</h1>
+        <div className="flex gap-2">
+          {activeTab === "preview" && (
             <Button
               variant="outline"
               onClick={handleGenerateSummary}
-              disabled={isGeneratingSummary || form.getValues("content").length < 50}
+              disabled={isGenSum || form.getValues("content").length < 50}
             >
-              {isGeneratingSummary ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Brain className="mr-2 h-4 w-4" />}
-              Generate Summary
+              {isGenSum
+                ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                : <Brain className="mr-2 h-4 w-4" />}
+              Summarize
             </Button>
           )}
-          {activeTab === 'editor' && (
-            <Button type="submit" onClick={form.handleSubmit(onSubmit)} disabled={isSaving}>
+          {activeTab === "editor" && (
+            <Button onClick={form.handleSubmit(onSubmit)} disabled={isSaving}>
               {isSaving
                 ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 : <Save className="mr-2 h-4 w-4" />}
-              Save Note
+              {id ? "Update Note" : "Save Note"}
             </Button>
           )}
         </div>
       </div>
 
+      {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
         <TabsList>
           <TabsTrigger value="editor">Editor</TabsTrigger>
           <TabsTrigger value="preview">Preview</TabsTrigger>
-          {summary && <TabsTrigger value="summary">AI Summary</TabsTrigger>}
+          {summary && <TabsTrigger value="summary">Summary</TabsTrigger>}
         </TabsList>
-        <TabsContent value="editor" className="space-y-4 py-4">
+
+        {/* EDITOR */}
+        <TabsContent value="editor" className="py-4 space-y-4">
           <Form {...form}>
-            <form className="space-y-4">
-              <FormField
-                control={form.control}
-                name="title"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Title</FormLabel>
-                    <FormControl><Input placeholder="Note title" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="content"
-                render={({ field }) => (
-                  <FormItem>
+            <form className="space-y-6">
+              <FormField control={form.control} name="title" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Title</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="Note title" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}/>
+
+              <FormField control={form.control} name="content" render={({ field }) => (
+                <FormItem>
+                  <div className="flex justify-between items-center">
                     <FormLabel>Content</FormLabel>
-                    <FormControl><Textarea className="min-h-[300px]" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="tags"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tags (comma separated)</FormLabel>
-                    <FormControl><Input placeholder="work, personal" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                    {/* Enhance button next to Content */}
+                    <EnhanceDialog
+                      open={showEnhance}
+                      onOpenChange={setShowEnhance}
+                      content={field.value}
+                      onApply={(txt) => form.setValue("content", txt)}
+                    />
+                  </div>
+                  <FormControl>
+                    <Textarea {...field} className="min-h-[200px]" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}/>
+
+              <FormField control={form.control} name="tags" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tags (comma separated)</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="work, personal" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}/>
             </form>
           </Form>
         </TabsContent>
+
+        {/* PREVIEW */}
         <TabsContent value="preview" className="py-4">
           <Card>
             <CardHeader>
-              <CardTitle>{form.getValues("title") || "Untitled Note"}</CardTitle>
+              <CardTitle>{form.getValues("title") || "Untitled"}</CardTitle>
               <CardDescription>
-                {(form.getValues("tags") ?? "")
-                  .split(",")
-                  .map((tag) => tag.trim())
-                  .filter(Boolean)
-                  .map((tag) => (
-                    <span key={tag} className="mr-2 inline-flex items-center rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-800 dark:bg-purple-900 dark:text-purple-300">
+                {(form.getValues("tags") ?? "").split(",")
+                  .map(t => t.trim()).filter(Boolean)
+                  .map(tag => (
+                    <span key={tag} className="mr-2 inline-block rounded-full bg-purple-100 px-2 py-0.5 text-xs dark:bg-purple-900">
                       {tag}
                     </span>
                   ))}
               </CardDescription>
             </CardHeader>
             <CardContent>
-
-              <div className="prose dark:prose-invert max-w-none whitespace-pre-wrap">
+              <div className="prose dark:prose-invert whitespace-pre-wrap">
                 {form.getValues("content")}
               </div>
             </CardContent>
             <CardFooter>
-              <div className="text-sm text-muted-foreground">Last updated: {new Date().toLocaleString()}</div>
+              <span className="text-sm text-muted-foreground">
+                Last updated: {new Date().toLocaleString()}
+              </span>
             </CardFooter>
           </Card>
         </TabsContent>
+
+        {/* AI SUMMARY */}
         {summary && (
           <TabsContent value="summary" className="py-4">
             <AISummary summary={summary} />

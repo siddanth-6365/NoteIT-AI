@@ -21,6 +21,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
 import { useNotes, useDeleteNote } from '@/hooks/use-notes'
+import Loader from '@/components/dashboard/loader'
 
 interface NotesListProps {
   /** If provided, only show the first N notes */
@@ -40,7 +41,7 @@ export function NotesList({ limit }: NotesListProps) {
     (n) =>
       n.title.toLowerCase().includes(search.toLowerCase()) ||
       n.body.toLowerCase().includes(search.toLowerCase()) ||
-      (n.tags ?? []).some((t) => t.toLowerCase().includes(search.toLowerCase())),
+      (n.tags ?? []).some((t: string) => t.toLowerCase().includes(search.toLowerCase())),
   )
 
   // Apply limit if given
@@ -56,10 +57,7 @@ export function NotesList({ limit }: NotesListProps) {
 
   if (isLoading)
     return (
-      <div className="py-10 flex flex-col items-center justify-center">
-        <span className="animate-spin rounded-full border-4 border-t-transparent border-primary h-10 w-10 mb-4" />
-        <p className="text-center text-muted-foreground">Loading your notes…</p>
-      </div>
+      <Loader message="Loading your notes…" />
     )
 
   return (
@@ -103,7 +101,7 @@ export function NotesList({ limit }: NotesListProps) {
               </Link>
               <CardContent>
                 <div className="flex flex-wrap gap-2">
-                  {(note.tags ?? []).map((tag) => (
+                  {(note.tags ?? []).map((tag: string) => (
                     <span
                       key={tag}
                       className="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-800 dark:bg-purple-900 dark:text-purple-300"
