@@ -24,7 +24,7 @@ const navItems: NavItem[] = [
   },
   {
     title: "All Notes",
-    href: "/dashboard/notes",
+    href: "/dashboard/notes/all",
     icon: <FileText className="h-4 w-4" />,
   },
   {

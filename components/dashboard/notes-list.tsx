@@ -1,4 +1,5 @@
 'use client'
+
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -7,14 +8,26 @@ import { formatDistanceToNow } from 'date-fns'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
 import { useNotes, useDeleteNote } from '@/hooks/use-notes'
 
-export function NotesList() {
+interface NotesListProps {
+  /** If provided, only show the first N notes */
+  limit?: number
+}
+
+export function NotesList({ limit }: NotesListProps) {
   const [search, setSearch] = useState('')
   const router = useRouter()
   const { toast } = useToast()
@@ -22,41 +35,49 @@ export function NotesList() {
   const { data: notes = [], isLoading } = useNotes()
   const { mutate: remove } = useDeleteNote()
 
+  // Filter by search
   const filtered = notes.filter(
-    n =>
+    (n) =>
       n.title.toLowerCase().includes(search.toLowerCase()) ||
       n.body.toLowerCase().includes(search.toLowerCase()) ||
-      (n.tags ?? []).some(t => t.toLowerCase().includes(search.toLowerCase())),
+      (n.tags ?? []).some((t) => t.toLowerCase().includes(search.toLowerCase())),
   )
+
+  // Apply limit if given
+  const displayed = typeof limit === 'number' ? filtered.slice(0, limit) : filtered
 
   const handleDelete = (id: string) =>
     remove(id, {
       onSuccess: () =>
         toast({ title: 'Note deleted', description: 'Your note was removed.' }),
-      onError: e =>
+      onError: (e) =>
         toast({ title: 'Error', description: String(e), variant: 'destructive' }),
     })
 
-  if (isLoading) return (
-    <div className="py-10 flex flex-col items-center justify-center">
-      <span className="animate-spin rounded-full border-4 border-t-transparent border-primary h-10 w-10 mb-4" />
-      <p className="text-center text-muted-foreground">Loading your notes…</p>
-    </div>
-  )
+  if (isLoading)
+    return (
+      <div className="py-10 flex flex-col items-center justify-center">
+        <span className="animate-spin rounded-full border-4 border-t-transparent border-primary h-10 w-10 mb-4" />
+        <p className="text-center text-muted-foreground">Loading your notes…</p>
+      </div>
+    )
 
   return (
     <div className="space-y-4">
-      <div className="relative">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search notes…"
-          className="pl-8"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
-      </div>
+      {/* only show search if unlimited */}
+      {!limit && (
+        <div className="relative">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search notes…"
+            className="pl-8"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+      )}
 
-      {filtered.length === 0 ? (
+      {displayed.length === 0 ? (
         <div className="flex h-[300px] items-center justify-center rounded-md border border-dashed p-8 text-center">
           <div>
             <h3 className="text-lg font-semibold">No notes found</h3>
@@ -72,7 +93,7 @@ export function NotesList() {
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filtered.map(note => (
+          {displayed.map((note) => (
             <Card key={note.id}>
               <Link href={`/dashboard/notes/${note.id}`}>
                 <CardHeader className="cursor-pointer">
@@ -82,7 +103,7 @@ export function NotesList() {
               </Link>
               <CardContent>
                 <div className="flex flex-wrap gap-2">
-                  {(note.tags ?? []).map(tag => (
+                  {(note.tags ?? []).map((tag) => (
                     <span
                       key={tag}
                       className="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-800 dark:bg-purple-900 dark:text-purple-300"

@@ -29,6 +29,8 @@ interface NoteEditorProps {
 export function NoteEditor({ id }: NoteEditorProps) {
   const [summary, setSummary] = useState<string | null>(null)
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false)
+  const [activeTab, setActiveTab] = useState<'editor' | 'preview' | 'summary'>(id ? 'preview' : 'editor')
+
   const router = useRouter()
   const { toast } = useToast()
 
@@ -128,14 +130,17 @@ export function NoteEditor({ id }: NoteEditorProps) {
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold md:text-2xl">{id ? "Edit Note" : "Create New Note"}</h1>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={handleGenerateSummary}
-            disabled={isGeneratingSummary || form.getValues("content").length < 50}
-          >
-            {isGeneratingSummary ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Brain className="mr-2 h-4 w-4" />}
-            Generate Summary
-          </Button>
+
+          {activeTab === 'preview' && (
+            <Button
+              variant="outline"
+              onClick={handleGenerateSummary}
+              disabled={isGeneratingSummary || form.getValues("content").length < 50}
+            >
+              {isGeneratingSummary ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Brain className="mr-2 h-4 w-4" />}
+              Generate Summary
+            </Button>
+          )}
           <Button type="submit" onClick={form.handleSubmit(onSubmit)} disabled={isSaving}>
             {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
             Save Note
@@ -143,7 +148,7 @@ export function NoteEditor({ id }: NoteEditorProps) {
         </div>
       </div>
 
-      <Tabs defaultValue="editor">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
         <TabsList>
           <TabsTrigger value="editor">Editor</TabsTrigger>
           <TabsTrigger value="preview">Preview</TabsTrigger>
@@ -205,8 +210,9 @@ export function NoteEditor({ id }: NoteEditorProps) {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="prose dark:prose-invert max-w-none">
-                {form.getValues("content").split("\n").map((p, i) => <p key={i}>{p}</p>)}
+
+              <div className="prose dark:prose-invert max-w-none whitespace-pre-wrap">
+                {form.getValues("content")}
               </div>
             </CardContent>
             <CardFooter>
