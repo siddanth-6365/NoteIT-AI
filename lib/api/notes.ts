@@ -33,12 +33,20 @@ export async function upsertNote(note: {
     data: { user },
     error: authError,
   } = await supabase.auth.getUser();
-
   if (authError || !user) throw authError || new Error("Not authenticated");
+
+  const now = new Date().toISOString();
 
   const { data, error } = await supabase
     .from("notes")
-    .upsert({ ...note, user_id: user.id })
+    .upsert(
+      {
+        ...note,
+        user_id: user.id,
+        updated_at: now, // ← explicitly set it
+      },
+      { onConflict: "id" }
+    )
     .select()
     .single();
 
