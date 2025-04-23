@@ -15,37 +15,56 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
-import { Brain, Loader2, Save } from "lucide-react"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Brain, Loader2, Save, Volume2, VolumeX } from "lucide-react"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AISummary } from "@/components/dashboard/ai-summary"
 import Loader from "@/components/dashboard/loader"
 import { useSaveNote, useNote } from "@/hooks/use-notes"
 import { generateSummary, enhanceNote } from "@/lib/api/ai"
+import { speakText, stopSpeaking } from "@/lib/speechUtils"
 
-// --- Schema -------------------------------------------------------
+// --- Schema ---
 const formSchema = z.object({
-  title:   z.string().min(1, { message: "Title is required." }),
+  title: z.string().min(1, { message: "Title is required." }),
   content: z.string().min(1, { message: "Content is required." }),
-  tags:    z.string().optional(),
+  tags: z.string().optional(),
 })
 
-// --- Enhance Modal Component -------------------------------------
+// --- Enhance Modal ---
 interface EnhanceDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   content: string
   onApply: (newContent: string) => void
 }
-
-function EnhanceDialog({ open, onOpenChange, content, onApply }: EnhanceDialogProps) {
+function EnhanceDialog({
+  open,
+  onOpenChange,
+  content,
+  onApply,
+}: EnhanceDialogProps) {
   const [instructions, setInstructions] = useState("")
-  const [isLoading, setIsLoading]         = useState(false)
-  const [result, setResult]               = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [result, setResult] = useState<string | null>(null)
   const { toast } = useToast()
 
   const handleEnhance = async () => {
@@ -111,8 +130,8 @@ function EnhanceDialog({ open, onOpenChange, content, onApply }: EnhanceDialogPr
                 onClick={() => {
                   onApply(result)
                   onOpenChange(false)
-                  setInstructions("")
                   setResult(null)
+                  setInstructions("")
                 }}
               >
                 Apply
@@ -128,9 +147,8 @@ function EnhanceDialog({ open, onOpenChange, content, onApply }: EnhanceDialogPr
   )
 }
 
-// --- Main Editor --------------------------------------------------
+//Main Editor 
 interface NoteEditorProps { id?: string }
-
 export function NoteEditor({ id }: NoteEditorProps) {
   const router = useRouter()
   const { toast } = useToast()
@@ -149,14 +167,14 @@ export function NoteEditor({ id }: NoteEditorProps) {
   useEffect(() => {
     if (existingNote) {
       form.reset({
-        title:   existingNote.title,
+        title: existingNote.title,
         content: existingNote.body,
-        tags:    (existingNote.tags ?? []).join(", "),
+        tags: (existingNote.tags ?? []).join(", "),
       })
     }
   }, [existingNote, form])
 
-  // tabs: editor / preview / summary
+  // tabs
   const [activeTab, setActiveTab] = useState<"editor" | "preview" | "summary">(
     id ? "preview" : "editor"
   )
@@ -165,7 +183,26 @@ export function NoteEditor({ id }: NoteEditorProps) {
   const [summary, setSummary] = useState<string | null>(null)
   const [isGenSum, setIsGenSum] = useState(false)
 
-  async function handleGenerateSummary() {
+  // Enhance modal
+  const [showEnhance, setShowEnhance] = useState(false)
+
+  // save/update
+  async function onSubmit(vals: z.infer<typeof formSchema>) {
+    const tagsArr = vals.tags
+      ?.split(",")
+      .map((t) => t.trim()).filter(Boolean) ?? []
+
+    try {
+      await saveNote({ id, title: vals.title, body: vals.content, tags: tagsArr })
+      toast({ title: "Success!", description: id ? "Updated" : "Saved" })
+      router.push("/dashboard")
+    } catch {
+      toast({ title: "Error", variant: "destructive" })
+    }
+  }
+
+  // generate summary
+  const handleGenerateSummary = async () => {
     const c = form.getValues("content")
     if (!c || c.length < 50) {
       toast({ title: "Not enough content", variant: "destructive" })
@@ -185,31 +222,15 @@ export function NoteEditor({ id }: NoteEditorProps) {
     }
   }
 
-  // enhance modal state
-  const [showEnhance, setShowEnhance] = useState(false)
-
-  // save/update
-  async function onSubmit(vals: z.infer<typeof formSchema>) {
-    const tagsArr = vals.tags
-      ?.split(",")
-      .map((t) => t.trim())
-      .filter(Boolean) ?? []
-    try {
-      await saveNote({ id, title: vals.title, body: vals.content, tags: tagsArr })
-      toast({ title: "Success!", description: id ? "Updated." : "Saved." })
-      router.push("/dashboard")
-    } catch {
-      toast({ title: "Error", variant: "destructive" })
-    }
-  }
-
   if (id && isFetching) return <Loader message="Loading note…" />
 
   return (
-    <div className="space-y-4">
-      {/* Title + Save/Generate */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">{id ? "Edit Note" : "New Note"}</h1>
+    <div className="space-y-6">
+      {/* Header + actions */}
+      <div className="flex items-left justify-between">
+        <h1 className="text-2xl font-semibold">
+          {id ? "Edit Note" : "New Note"}
+        </h1>
         <div className="flex gap-2">
           {activeTab === "preview" && (
             <Button
@@ -224,7 +245,10 @@ export function NoteEditor({ id }: NoteEditorProps) {
             </Button>
           )}
           {activeTab === "editor" && (
-            <Button onClick={form.handleSubmit(onSubmit)} disabled={isSaving}>
+            <Button
+              onClick={form.handleSubmit(onSubmit)}
+              disabled={isSaving}
+            >
               {isSaving
                 ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 : <Save className="mr-2 h-4 w-4" />}
@@ -243,65 +267,95 @@ export function NoteEditor({ id }: NoteEditorProps) {
         </TabsList>
 
         {/* EDITOR */}
-        <TabsContent value="editor" className="py-4 space-y-4">
+        <TabsContent value="editor" className="space-y-4">
           <Form {...form}>
             <form className="space-y-6">
-              <FormField control={form.control} name="title" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Title</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="Note title" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}/>
+              <FormField control={form.control} name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Title</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Note title" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-              <FormField control={form.control} name="content" render={({ field }) => (
-                <FormItem>
-                  <div className="flex justify-between items-center">
-                    <FormLabel>Content</FormLabel>
-                    {/* Enhance button next to Content */}
-                    <EnhanceDialog
-                      open={showEnhance}
-                      onOpenChange={setShowEnhance}
-                      content={field.value}
-                      onApply={(txt) => form.setValue("content", txt)}
-                    />
-                  </div>
-                  <FormControl>
-                    <Textarea {...field} className="min-h-[200px]" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}/>
+              <FormField control={form.control} name="content"
+                render={({ field }) => (
+                  <FormItem>
+                    <div className="flex justify-between items-center">
+                      <FormLabel>Content</FormLabel>
+                      <div className="flex gap-1">
+                        {/* Enhance */}
+                        <EnhanceDialog
+                          open={showEnhance}
+                          onOpenChange={setShowEnhance}
+                          content={field.value}
+                          onApply={(txt) => form.setValue("content", txt)}
+                        />
+                      </div>
+                    </div>
+                    <FormControl>
+                      <Textarea {...field} className="min-h-[200px]" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-              <FormField control={form.control} name="tags" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Tags (comma separated)</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="work, personal" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}/>
+              <FormField control={form.control} name="tags"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tags (comma separated)</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="work, personal" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </form>
           </Form>
         </TabsContent>
 
         {/* PREVIEW */}
-        <TabsContent value="preview" className="py-4">
+        <TabsContent value="preview" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>{form.getValues("title") || "Untitled"}</CardTitle>
-              <CardDescription>
-                {(form.getValues("tags") ?? "").split(",")
-                  .map(t => t.trim()).filter(Boolean)
-                  .map(tag => (
-                    <span key={tag} className="mr-2 inline-block rounded-full bg-purple-100 px-2 py-0.5 text-xs dark:bg-purple-900">
-                      {tag}
-                    </span>
-                  ))}
-              </CardDescription>
+              <div>
+                <CardTitle>{form.getValues("title") || "Untitled"}</CardTitle>
+                <CardDescription>
+                  {(form.getValues("tags") ?? "")
+                    .split(",").map(t => t.trim()).filter(Boolean)
+                    .map(tag => (
+                      <span
+                        key={tag}
+                        className="mr-2 inline-block rounded-full bg-purple-100 px-2 py-0.5 text-xs dark:bg-purple-900"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                </CardDescription>
+              </div>
+              {/* TTS controls */}
+              <div className="flex gap-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => speakText(form.getValues("content"), "en-US")}
+                >
+                  <Volume2 className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => stopSpeaking()}
+                >
+                  <VolumeX className="h-4 w-4" />
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="prose dark:prose-invert whitespace-pre-wrap">
