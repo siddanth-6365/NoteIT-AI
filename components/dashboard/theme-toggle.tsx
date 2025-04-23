@@ -12,7 +12,7 @@ export function ThemeToggle() {
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon">
-                    <Sun className={theme === "light" ? "text-yellow-500" : ""} />
+                    <Sun  />
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>

@@ -26,7 +26,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
-import { Brain, Loader2, Save, Volume2, VolumeX } from "lucide-react"
+import { Brain, Loader2, Save, Volume2, VolumeX, Pause } from "lucide-react"
 import {
   Card,
   CardContent,
@@ -332,7 +332,7 @@ export function NoteEditor({ id }: NoteEditorProps) {
                     .map(tag => (
                       <span
                         key={tag}
-                        className="mr-2 inline-block rounded-full bg-purple-100 px-2 py-0.5 text-xs dark:bg-purple-900"
+                        className="mr-2 inline-block rounded-full dark:text-white text-gray-900 bg-purple-100 px-2 py-0.5 text-xs dark:bg-purple-800"
                       >
                         {tag}
                       </span>
@@ -353,7 +353,7 @@ export function NoteEditor({ id }: NoteEditorProps) {
                   variant="outline"
                   onClick={() => stopSpeaking()}
                 >
-                  <VolumeX className="h-4 w-4" />
+                  <Pause className="h-4 w-4" />
                 </Button>
               </div>
             </CardHeader>
